@@ -213,6 +213,9 @@ msgstr "SIOOC"
 msgid "Data Catalogue"
 msgstr "Catalogue de données"
 
+msgid "Metadata Catalogue"
+msgstr "Catalogue Metadata"
+
 msgid "Search, find, download — all of our"
 msgstr "Recherche, trouve, télécharge nos"
 
@@ -404,6 +407,10 @@ msgstr "OUTILS DE DONNÉES"
 
 msgid "DATA CATALOGUE"
 msgstr "CATALOGUE DE DONNÉES"
+
+msgid "METADATA CATALOGUE"
+msgstr "CATALOGUE METADATA"
+
 
 msgid "Partners"
 msgstr "Partenaires"
