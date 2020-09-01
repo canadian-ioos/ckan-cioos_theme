@@ -353,6 +353,8 @@ class Cioos_ThemePlugin(plugins.SingletonPlugin, DefaultTranslation):
             # facets_dict['themes'] = toolkit._('Theme')
             facets_dict['eov'] = toolkit._('Ocean Variables')
             facets_dict['responsible_organizations'] = toolkit._('Responsible Organization')
+            facets_dict['mapp-theme'] = toolkit._('Theme')
+            facets_dict['mapp-sub-theme'] = toolkit._('Sub Theme')
 
             for key, value in ordered_dict.items():
                 # Make translation 'on the fly' of facet tags.
@@ -391,6 +393,10 @@ class Cioos_ThemePlugin(plugins.SingletonPlugin, DefaultTranslation):
         data_dict['tags_fr'] = tags_dict.get('fr', [])
         data_dict['tags'] = data_dict['tags_en'] + data_dict['tags_fr']
 
+        # make theme and sub-theme a list
+        #data_dict['mapp-theme'] = data_dict.get('mapp-theme', "").split(", ")
+        #data_dict['mapp-sub-theme'] = data_dict.get('mapp-sub-theme', "").split(", ")
+        
         # update organization list by language
         org_id = data_dict.get('owner_org')
         data_type = data_dict.get('type')
