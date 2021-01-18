@@ -19,6 +19,31 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Generated-By: Babel 2.3.4\n"
 
+#: ckanext/cioos_theme/templates/error_document_template.html:4
+msgid "Page not found"
+msgstr "Impossible de trouver la page"
+
+#: ckanext/cioos_theme/templates/error_document_template.html:6
+#, python-format
+msgid "Error %(error_code)s"
+msgstr "Erreur %(error_code)s"
+
+#: ckanext/cioos_theme/templates/error_document_template.html:14
+msgid "404 - Page not found"
+msgstr "404 - Impossible de trouver la page"
+
+#: ckanext/cioos_theme/templates/error_document_template.html:15
+msgid "Sorry, we could not find the page you are looking for."
+msgstr "Malheureusement, la page recherchée est introuvable."
+
+#: ckanext/cioos_theme/templates/error_document_template.html:16
+msgid "Follow this link to explore our datasets "
+msgstr "Vous pouvez suivre le lien suivant pour explorer nos jeux de données"
+
+#: ckanext/cioos_theme/templates/error_document_template.html:17
+msgid "Or contact us at "
+msgstr "Ou nous contacter à l'adresse "
+
 #: ckanext/cioos_theme/templates/group/read.html:13
 #: ckanext/cioos_theme/templates/package/search.html:29
 msgid "Relevance"
@@ -47,7 +72,7 @@ msgstr "Populaire"
 #: ckanext/cioos_theme/templates/group/read.html:19
 #: ckanext/cioos_theme/templates/package/search.html:38
 msgid "Search datasets"
-msgstr "Rechercher les jeux de donnée"
+msgstr "Rechercher les jeux de données"
 
 #: ckanext/cioos_theme/templates/home/snippets/promoted.html:8
 msgid "Welcome to CKAN"
@@ -217,7 +242,7 @@ msgid "Metadata Catalogue"
 msgstr "Catalogue Metadata"
 
 msgid "Search, find, download — all of our"
-msgstr "Recherche, trouve, télécharge nos"
+msgstr "Recherche, trouve, et télécharge - nos"
 
 msgid "SEARCH BY KEYWORD"
 msgstr "RECHERCHE PAR MOTS-CLÉS"
@@ -235,7 +260,7 @@ msgid "PHYSIC"
 msgstr "PHYSIQUE"
 
 msgid "Biogeochemical"
-msgstr "Biogéochimique"
+msgstr "Biogéochimie"
 
 msgid "Physical"
 msgstr "Physique"
@@ -388,7 +413,7 @@ msgid "HOME"
 msgstr "ACCUEIL"
 
 msgid "Datasets"
-msgstr "Ensembles de données"
+msgstr "Jeux de données"
 
 msgid "Organizations"
 msgstr "Organisations"
@@ -441,3 +466,18 @@ msgstr "Plus Récent"
 
 msgid "E.g. temperature"
 msgstr "Ex. température"
+
+#: ckan/templates/group/activity_stream.html:3
+#: ckan/templates/group/activity_stream.html:6
+#: ckan/templates/group/read_base.html:18
+#: ckan/templates/organization/activity_stream.html:3
+#: ckan/templates/organization/activity_stream.html:6
+#: ckan/templates/organization/read_base.html:18
+#: ckan/templates/package/activity.html:3
+#: ckan/templates/package/activity.html:6
+#: ckan/templates/package/read_base.html:21
+#: ckan/templates/user/activity_stream.html:3
+#: ckan/templates/user/activity_stream.html:6
+#: ckan/templates/user/read_base.html:20
+msgid "Activity Stream"
+msgstr "Flux d'Activités"
