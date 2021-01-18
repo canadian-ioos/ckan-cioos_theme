@@ -7,7 +7,7 @@
 {% block header_mobilesite_navigation2 %}
 <nav>
   <ul id="menu-mobile-menu" class="menu">
-    <li class="menu-item menu-item-type-post_type menu-item-object-page menu-item-home menu-item-1478"><a href="http://mappocean.org/" class="elementor-item">Home</a></li>
+    <li class="menu-item menu-item-type-post_type menu-item-object-page menu-item-home menu-item-1478"><a href="{{g.site_home_url}}" class="elementor-item">Home</a></li>
     <li id="menu-item-1566" class="menu-item menu-item-type-post_type menu-item-object-page menu-item-has-children menu-parent menu-item-1566">
       <a href="http://mappocean.org/haida-gwaii/"><span class="mega-indicator">Haida Gwaii</span></a>
       <ul class="sub-menu">
@@ -177,7 +177,6 @@
     <li id="menu-item-1652" class="menu-item menu-item-has-children menu-parent current-menu-item current_page_item"><a href="{{ h.url_for('home.index') }}"><span class="mega-indicator">{{_('METADATA CATALOGUE')}}</span></a>
       <ul class="sub-menu" style=" min-width: 161px;">
         <li id="menu-item-1999" class="menu-item"><a href="{{ h.url_for('home.index') }}dataset">{{_('Datasets')}}</a></li>
-        <li id="menu-item-2001" class="menu-item"><a href="{{ h.url_for('home.index') }}organization">{{_('Organizations')}}</a></li>
       </ul>
     </li>
     <ul class="shareicons">
@@ -198,7 +197,7 @@
 {% macro include_site_header() %}
 {% block header_main %}
 <ul id="menu-main-menu" class="menu">
-  <li class="menu-item menu-item-type-post_type menu-item-object-page menu-item-home menu-item-1478"><a href="http://mappocean.org/" class="elementor-item">Home</a></li>
+  <li class="menu-item menu-item-type-post_type menu-item-object-page menu-item-home menu-item-1478"><a href="{{g.site_home_url}}" class="elementor-item">Home</a></li>
   <li id="menu-item-1566" class="menu-item menu-item-type-post_type menu-item-object-page menu-item-has-children menu-parent menu-item-1566">
     <a href="http://mappocean.org/haida-gwaii/"><span class="mega-indicator">Haida Gwaii</span></a>
     <ul class="sub-menu">
@@ -368,7 +367,6 @@
   <li id="menu-item-1652" class="menu-item menu-item-has-children menu-parent current-menu-item current_page_item"><a href="{{ h.url_for('home.index') }}"><span class="mega-indicator">{{_('METADATA CATALOGUE')}}</span></a>
     <ul class="sub-menu" style=" min-width: 161px;">
       <li id="menu-item-1999" class="menu-item"><a href="{{ h.url_for('home.index') }}dataset">{{_('Datasets')}}</a></li>
-      <li id="menu-item-2001" class="menu-item"><a href="{{ h.url_for('home.index') }}organization">{{_('Organizations')}}</a></li>
     </ul>
   </li>
 </ul>
