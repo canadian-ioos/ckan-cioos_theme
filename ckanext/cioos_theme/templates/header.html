@@ -44,7 +44,7 @@
       <nav>
         <ul>
           {{ include_site_social() }}
-          <li id="language_picker">
+          {# <li id="language_picker">
             {%- if h.lang() == 'en' -%}
               <a href="{% url_for h.current_url(), locale='fr' %}" tabindex="0" aria-label="French/English">FR</a>
             {%- else -%}
@@ -55,7 +55,7 @@
             <a href="https://cioos.ca">
               <img class="mega-menu-logo" width="auto" height="37" src="{{ h.url_for_static_or_external('/base/images/logos/cioos-banner-' + h.lang() +'.png') }}">
             </a>
-          </li>
+          </li> #}
           </ul>
       </nav>
       {% endblock %}
