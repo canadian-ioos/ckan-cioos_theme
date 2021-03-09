@@ -19,6 +19,9 @@ import urllib2
 import xml.etree.ElementTree as ET
 import routes.mapper
 import ckan.lib.base as base
+import re
+
+Invalid = df.Invalid
 
 StopOnError = df.StopOnError
 missing = df.missing
@@ -131,6 +134,17 @@ def url_validator_with_port(key, data, errors, context):
         # url is invalid
         pass
     errors[key].append(_('Please provide a valid URL'))
+
+
+@scheming_validator
+def cioos_tag_name_validator(field, schema):
+
+    def validator(value, context):
+        tagname_match = re.compile('[\w \-.\']*$', re.UNICODE)
+        if not tagname_match.match(value):
+            raise Invalid(_('Tag "%s" must be alphanumeric characters or symbols: -_.\'') % (value))
+        return value
+    return validator
 
 
 class Cioos_ThemePlugin(plugins.SingletonPlugin, DefaultTranslation):
@@ -253,7 +267,10 @@ class Cioos_ThemePlugin(plugins.SingletonPlugin, DefaultTranslation):
         return {
             # 'cioos_if_empty_same_as__extras': if_empty_same_as__extras,
             'cioos_clean_and_populate_eovs': clean_and_populate_eovs,
-        }
+            'cioos_fluent_field_default': fluent_field_default,
+            'cioos_url_validator_with_port': url_validator_with_port,
+            'cioos_tag_name_validator': cioos_tag_name_validator,
+            }
 
     # IFacets
 
@@ -351,8 +368,23 @@ class Cioos_ThemePlugin(plugins.SingletonPlugin, DefaultTranslation):
 
     # IPackageController
 
-    def _cited_responsible_party_to_responsible_organizations(self, parties):
-        return [x.get('organisation-name', '').strip() for x in json.loads(parties) if x.get('role') in ['originator']]
+    def _cited_responsible_party_to_responsible_organizations(self, parties, force_responsible_organization):
+        if force_responsible_organization:
+            if isinstance(force_responsible_organization, list):
+                resp_orgs = force_responsible_organization
+            else:
+                resp_orgs = [force_responsible_organization]
+        else:
+            resp_org_roles = json.loads(toolkit.config.get('ckan.responsible_organization_roles', '["owner", "originator", "custodian", "author", "principalInvestigator"]'))
+            resp_orgs = [x.get('organisation-name', '').strip() for x in json.loads(parties) if x.get('role') in resp_org_roles]
+            resp_orgs = list(dict.fromkeys(resp_orgs))  # remove duplicates
+        return resp_orgs
+
+    def _get_extra_value(self, key, package_dict):
+        for extra in package_dict.get('extras', []):
+            if extra['key'] == key:
+                return extra['value']
+
     # modfiey tags, keywords, and eov fields so that they properly index
     def before_index(self, data_dict):
         data_type = data_dict.get('type')
@@ -360,14 +392,15 @@ class Cioos_ThemePlugin(plugins.SingletonPlugin, DefaultTranslation):
             return data_dict
 
         try:
-            tags_dict = json.loads(data_dict.get('keywords', '{}'))
+            tags_dict = load_json(data_dict.get('keywords', '{}'))
         except Exception as err:
             log.error(data_dict.get('id', 'NO ID'))
             log.error(type(err))
             log.error("error:%s, keywords:%r", err, data_dict.get('keywords', '{}'))
             tags_dict = {"en": [], "fr": []}
 
-        data_dict['responsible_organizations'] = self._cited_responsible_party_to_responsible_organizations(data_dict.get('cited-responsible-party', '{}'))
+        force_resp_org = load_json(data_dict.get('force_responsible_organization', '[]'))
+        data_dict['responsible_organizations'] = self._cited_responsible_party_to_responsible_organizations(data_dict.get('cited-responsible-party', '{}'), force_resp_org)
 
         # update tag list by language
         data_dict['tags_en'] = tags_dict.get('en', [])
@@ -398,12 +431,13 @@ class Cioos_ThemePlugin(plugins.SingletonPlugin, DefaultTranslation):
             data_dict['organization_fr'] = org_title.get('fr', '')
 
         try:
-            title = json.loads(data_dict.get('title_translated', '{}'))
+            title = load_json(data_dict.get('title_translated', '{}'))
             data_dict['title_en'] = title.get('en', [])
             data_dict['title_fr'] = title.get('fr', [])
         except Exception as err:
             log.error(err)
 
+        # create temporal extent index.
         te = data_dict.get('temporal-extent', '{}')
         if te:
             temporal_extent = load_json(te)
@@ -416,6 +450,7 @@ class Cioos_ThemePlugin(plugins.SingletonPlugin, DefaultTranslation):
             if(temporal_extent_begin and temporal_extent_end):
                 data_dict['temporal-extent-range'] = '[' + temporal_extent_begin + ' TO ' + temporal_extent_end + ']'
 
+        # create vertical extent index
         ve = data_dict.get('vertical-extent', '{}')
         if ve:
             vertical_extent = load_json(ve)
@@ -433,7 +468,8 @@ class Cioos_ThemePlugin(plugins.SingletonPlugin, DefaultTranslation):
         # Index Source XML
         # harvest object will be json if harvested from another ckan instance. TODO check it is xml
         # try harvest object (xml)
-        h_object_id = data_dict.get('harvest_object_id', 'none')
+        #log.debug('DICT: %r', data_dict)
+        h_object_id = data_dict.get('harvest_object_id', data_dict.get('h_object_id', 'none'))
         context = {'model': model,
                    'session': model.Session,
                    'ignore_auth': True}
@@ -528,9 +564,12 @@ class Cioos_ThemePlugin(plugins.SingletonPlugin, DefaultTranslation):
         # this is inconsistant with package data which is returned as json objects
         # by the package_show and package_search end points whout filters applied
         for result in search_results.get('results', []):
+
+            force_resp_org = load_json(self._get_extra_value('force_responsible_organization', result))
             cited_responsible_party = result.get('cited-responsible-party')
-            if(cited_responsible_party and not result.get('responsible_organizations')):
-                result['responsible_organizations'] = self._cited_responsible_party_to_responsible_organizations(cited_responsible_party)
+            if((cited_responsible_party or force_resp_org) and not result.get('responsible_organizations')):
+                result['responsible_organizations'] = self._cited_responsible_party_to_responsible_organizations(cited_responsible_party, force_resp_org)
+
             title = result.get('title_translated')
             if(title):
                 result['title_translated'] = load_json(title)
@@ -600,9 +639,10 @@ class Cioos_ThemePlugin(plugins.SingletonPlugin, DefaultTranslation):
             if org_image_url:
                 package_dict['organization']['image_url_translated'] = org_image_url
 
+        force_resp_org = load_json(self._get_extra_value('force_responsible_organization', package_dict))
         cited_responsible_party = package_dict.get('cited-responsible-party')
-        if(cited_responsible_party and not package_dict.get('responsible_organizations')):
-            package_dict['responsible_organizations'] = self._cited_responsible_party_to_responsible_organizations(cited_responsible_party)
+        if((cited_responsible_party or force_resp_org) and not package_dict.get('responsible_organizations')):
+            package_dict['responsible_organizations'] = self._cited_responsible_party_to_responsible_organizations(cited_responsible_party, force_resp_org)
 
         return package_dict
 
