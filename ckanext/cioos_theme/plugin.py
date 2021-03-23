@@ -350,6 +350,8 @@ class Cioos_ThemePlugin(plugins.SingletonPlugin, DefaultTranslation):
             facets_dict['responsible_organizations'] = toolkit._('Responsible Organization')
             facets_dict['mapp-theme'] = toolkit._('Theme')
             facets_dict['mapp-sub-theme'] = toolkit._('Sub Theme')
+            facets_dict['mapp-sub-region'] = toolkit._('Sub Region')
+            facets_dict['mapp-project'] = toolkit._('Project')
 
             if show_responsible_organizations:
                 facets_dict['responsible_organizations'] = toolkit._('Responsible Organization')
@@ -410,7 +412,7 @@ class Cioos_ThemePlugin(plugins.SingletonPlugin, DefaultTranslation):
         # make theme and sub-theme a list
         #data_dict['mapp-theme'] = data_dict.get('mapp-theme', "").split(", ")
         #data_dict['mapp-sub-theme'] = data_dict.get('mapp-sub-theme', "").split(", ")
-        
+
         # update organization list by language
         org_id = data_dict.get('owner_org')
         if org_id:
