@@ -365,7 +365,7 @@ class Cioos_ThemePlugin(plugins.SingletonPlugin, DefaultTranslation):
             facets_dict['responsible_organizations'] = toolkit._('Responsible Organization')
             facets_dict['mapp-theme'] = toolkit._('Theme')
             facets_dict['mapp-sub-theme'] = toolkit._('Sub Theme')
-            facets_dict['mapp-sub-region'] = toolkit._('Sub Region')
+            facets_dict['mapp-sub-region'] = toolkit._('Region')
             facets_dict['mapp-project'] = toolkit._('Project')
 
             if show_responsible_organizations:
