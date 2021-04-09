@@ -338,6 +338,10 @@ class Cioos_ThemePlugin(plugins.SingletonPlugin, DefaultTranslation):
         if 'groups' in facets_dict:
             facets_dict.pop('groups')
 
+        # remove organization facet
+        if 'organization' in facets_dict:
+            facets_dict.pop('organization')
+
         if 'themes' not in facets_dict \
                 or 'eov' not in facets_dict \
                 or 'responsible_organizations' not in facets_dict:
@@ -360,7 +364,7 @@ class Cioos_ThemePlugin(plugins.SingletonPlugin, DefaultTranslation):
                 # Make translation 'on the fly' of facet tags.
                 # Should check for all translated fields.
                 # Should check translation exists.
-                if key == 'tags' or key == 'organization':
+                if key == 'tags':
                     facets_dict[key + '_' + self.lang()] = value
                 else:
                     facets_dict[key] = value
