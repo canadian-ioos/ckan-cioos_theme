@@ -1,3 +1,5 @@
+# encoding: utf-8
+
 import ckan.plugins as plugins
 import ckan.plugins.toolkit as toolkit
 import ckanext.cioos_theme.helpers as cioos_helpers
@@ -11,10 +13,25 @@ from ckan.common import c
 from six.moves.urllib.parse import urlparse
 import string
 from ckan.common import _
+import routes.mapper
+import ckan.lib.base as base
+import re
 
-StopOnError = df.StopOnError
-missing = df.missing
+Invalid = df.Invalid
+
 log = logging.getLogger(__name__)
+
+show_responsible_organizations = toolkit.asbool(
+    toolkit.config.get('cioos.show_responsible_organizations_facet', "True"))
+
+contact_email = toolkit.config.get('cioos.contact_email', "info@cioos.ca")
+organizations_info_text = toolkit.config.get(
+    'cioos.organizations_info_text',
+    {
+        "en": "CKAN Organizations are used to create, manage and publish collections of datasets. Users can have different roles within an Organization, depending on their level of authorisation to create, edit and publish.",
+        "fr": u"Les Organisations CKAN sont utilisées pour créer, gérer et publier des collections de jeux de données. Les utilisateurs peuvent avoir différents rôles au sein d'une Organisation, en fonction de leur niveau d'autorisation pour créer, éditer et publier."
+    }
+)
 
 
 def load_json(j):
@@ -28,70 +45,6 @@ def load_json(j):
 def geojson_to_bbox(o):
     return shape(o).bounds
 
-
-# from the docs
-# def most_popular_groups():
-#     '''Return a sorted list of the groups with the most datasets.'''
-#
-#     # Get a list of all the site's groups from CKAN, sorted by number of
-#     # datasets.
-#     groups = toolkit.get_action('group_list')(
-#         data_dict={'sort': 'package_count desc', 'all_fields': True})
-#
-#     # Truncate the list to the 10 most popular groups only.
-#     groups = groups[:5]
-#
-#     return groups
-#
-#
-# def groups():
-#     '''Return a sorted list of the groups'''
-#
-#     # Get a list of all the site's groups from CKAN, sorted by number of
-#     # datasets.
-#     groups = toolkit.get_action('group_list')(
-#         data_dict={'sort': 'title asc', 'all_fields': True})
-#
-#     return groups
-#
-#
-# # from the docs
-# def most_popular_datasets():
-#     '''Return a sorted list of the groups with the most datasets.'''
-#
-#     # Get a list of all the site's groups from CKAN, sorted by number of
-#     # datasets.
-#     groups = toolkit.get_action('package_search')(
-#         data_dict={'sort': 'views_recent desc', 'all_fields': True})
-#
-#     # Truncate the list to the 10 most popular groups only.
-#     groups = groups[:5]
-#
-#     return groups
-#
-#
-# def most_popular_resources():
-#     '''Return a sorted list of the groups with the most datasets.'''
-#
-#     # Get a list of all the site's groups from CKAN, sorted by number of
-#     # datasets.
-#     groups = toolkit.get_action('resource_search')(
-#         data_dict={'sort': 'views_recent desc', 'all_fields': True})
-#
-#     # Truncate the list to the 10 most popular groups only.
-#     groups = groups[:5]
-#
-#     return groups
-#
-# def recent_packages_html():
-#     '''Return a sorted list of the groups with the most datasets.'''
-#
-#     # Get a list of all the site's groups from CKAN, sorted by number of
-#     # datasets.
-#     groups = toolkit.get_action('recently_changed_packages_activity_list_html')(
-#         data_dict={'limit': '5'})
-#
-#     return groups
 
 # IValidators
 
@@ -119,7 +72,7 @@ def clean_and_populate_eovs(field, schema):
 
         d = json.loads(data.get(key, '[]'))
         for x in eov_data:
-            if isinstance(x, basestring):
+            if isinstance(x, str):
                 val = eov_list.get(x.lower(), '')
             else:
                 val = eov_list.get(x, '')
@@ -135,6 +88,7 @@ def clean_and_populate_eovs(field, schema):
         return data
 
     return validator
+
 
 @scheming_validator
 def fluent_field_default(field, schema):
@@ -158,6 +112,7 @@ def fluent_field_default(field, schema):
         return data
     return validator
 
+
 def url_validator_with_port(key, data, errors, context):
     ''' Checks that the provided value (if it is present) is a valid URL, accepts port numbers in URL '''
 
@@ -176,6 +131,28 @@ def url_validator_with_port(key, data, errors, context):
         pass
     errors[key].append(_('Please provide a valid URL'))
 
+
+@scheming_validator
+def cioos_tag_name_validator(field, schema):
+
+    def validator(value, context):
+        tagname_match = re.compile('[\w \-.\']*$', re.UNICODE)
+        if not tagname_match.match(value):
+            raise Invalid(_('Tag "%s" must be alphanumeric characters or symbols: -_.\'') % (value))
+        return value
+    return validator
+
+
+@scheming_validator
+def cioos_is_valid_range(field, schema):
+
+    def validator(value, context):
+        range = json.loads(value)
+        if (not range.get('begin') and range.get('end')) or (range.get('end') and range['end'] < range['begin']):
+            raise Invalid(_('Invalid value "%r" found in "%s". Valid ranges must have begin <= end values') % (value, field['name']))
+        return value
+    return validator
+
 class Cioos_ThemePlugin(plugins.SingletonPlugin, DefaultTranslation):
     plugins.implements(plugins.ITranslation)
     plugins.implements(plugins.IConfigurer)
@@ -184,6 +161,17 @@ class Cioos_ThemePlugin(plugins.SingletonPlugin, DefaultTranslation):
     plugins.implements(plugins.IPackageController, inherit=True)
     plugins.implements(plugins.IValidators)
     plugins.implements(plugins.IAuthenticator)
+    plugins.implements(plugins.IRoutes)
+
+    # IRoute
+
+    def before_map(self, route_map):
+        with routes.mapper.SubMapper(route_map, controller='ckanext.cioos_theme.plugin:CIOOSController') as m:
+            m.connect('schemamap', '/schemamap', action='schemamap')
+        return route_map
+
+    def after_map(self, route_map):
+        return route_map
 
     # IAuthenticator
 
@@ -234,6 +222,7 @@ class Cioos_ThemePlugin(plugins.SingletonPlugin, DefaultTranslation):
 
         ignore_missing = toolkit.get_validator('ignore_missing')
         fluent_text = toolkit.get_validator('fluent_text')
+        boolean_validator = toolkit.get_validator('boolean_validator')
 
         schema.update({
             'ckan.site_title': [ignore_missing, fluent_field_default(None, None), fluent_text(None, None)],
@@ -245,9 +234,17 @@ class Cioos_ThemePlugin(plugins.SingletonPlugin, DefaultTranslation):
             'ckan.exclude_eov_category': [ignore_missing],
             'ckan.exclude_eov': [ignore_missing],
             'ckan.eov_icon_base_path': [ignore_missing],
-            'ckan.header_file_name': [ignore_missing]
+            'ckan.header_file_name': [ignore_missing],
+            'ckan.footer_file_name': [ignore_missing],
+            'ckan.show_social_in_dataset_sidebar': [ignore_missing, boolean_validator],
+            'ckan.hide_organization_in_breadcrumb': [ignore_missing, boolean_validator],
+            'ckan.hide_organization_in_dataset_sidebar': [ignore_missing, boolean_validator],
+            'ckan.show_responsible_organization_in_dataset_sidebar': [ignore_missing, boolean_validator],
         })
         return schema
+
+    def get_additional_css_path(self):
+        return toolkit.config.get('ckan.cioos.ra_css_path', '/ra.css')
 
     def get_helpers(self):
         """Register the most_popular_groups() function above as a template helper function."""
@@ -255,6 +252,8 @@ class Cioos_ThemePlugin(plugins.SingletonPlugin, DefaultTranslation):
         # extension they belong to, to avoid clashing with functions from
         # other extensions.
         return {
+            'cioos_organizations_info_text': lambda: organizations_info_text,
+            'cioos_contact_email': lambda: contact_email,
             'cioos_load_json': load_json,
             'cioos_geojson_to_bbox': geojson_to_bbox,
             # 'cioos_most_popular_groups': most_popular_groups,
@@ -268,13 +267,20 @@ class Cioos_ThemePlugin(plugins.SingletonPlugin, DefaultTranslation):
             # 'cioos_get_organization_dict_extra': cioos_helpers.get_organization_dict_extra
             'cioos_datasets': cioos_helpers.cioos_datasets,
             'cioos_count_datasets': cioos_helpers.cioos_count_datasets,
-            'cioos_get_eovs': cioos_helpers.cioos_get_eovs
+            'cioos_get_eovs': cioos_helpers.cioos_get_eovs,
+            'cioos_get_locale_url': self.get_locale_url,
+            'cioos_schema_field_map': cioos_helpers.cioos_schema_field_map,
+            'cioos_get_additional_css_path': self.get_additional_css_path
         }
 
     def get_validators(self):
         return {
             # 'cioos_if_empty_same_as__extras': if_empty_same_as__extras,
             'cioos_clean_and_populate_eovs': clean_and_populate_eovs,
+            'cioos_fluent_field_default': fluent_field_default,
+            'cioos_url_validator_with_port': url_validator_with_port,
+            'cioos_tag_name_validator': cioos_tag_name_validator,
+            'cioos_is_valid_range': cioos_is_valid_range,
         }
 
     # IFacets
@@ -352,7 +358,9 @@ class Cioos_ThemePlugin(plugins.SingletonPlugin, DefaultTranslation):
             facets_dict.clear()
             # facets_dict['themes'] = toolkit._('Theme')
             facets_dict['eov'] = toolkit._('Ocean Variables')
-            facets_dict['responsible_organizations'] = toolkit._('Responsible Organization')
+
+            if show_responsible_organizations:
+                facets_dict['responsible_organizations'] = toolkit._('Responsible Organization')
 
             for key, value in ordered_dict.items():
                 # Make translation 'on the fly' of facet tags.
@@ -366,25 +374,39 @@ class Cioos_ThemePlugin(plugins.SingletonPlugin, DefaultTranslation):
 
     # IPackageController
 
-    # def after_create(self, context, pkg_dict):
-    #     # dosn't work to update name in validator as id is populated by database. better to use a validator and populate usig uuid
-    #     # import uuid
-    #     # str(uuid.uuid4())
-    #     name = pkg_dict.get('name', '')
-    #     if not name:
-    #         pkg_dict['name'] = pkg_dict.get('id', name)
+    def _cited_responsible_party_to_responsible_organizations(self, parties, force_responsible_organization):
+        if force_responsible_organization:
+            if isinstance(force_responsible_organization, list):
+                resp_orgs = force_responsible_organization
+            else:
+                resp_orgs = [force_responsible_organization]
+        else:
+            resp_org_roles = json.loads(toolkit.config.get('ckan.responsible_organization_roles', '["owner", "originator", "custodian", "author", "principalInvestigator"]'))
+            resp_orgs = [x.get('organisation-name', '').strip() for x in json.loads(parties) if x.get('role') in resp_org_roles]
+            resp_orgs = list(dict.fromkeys(resp_orgs))  # remove duplicates
+        return resp_orgs
+
+    def _get_extra_value(self, key, package_dict):
+        for extra in package_dict.get('extras', []):
+            if extra['key'] == key:
+                return extra['value']
 
     # modfiey tags, keywords, and eov fields so that they properly index
     def before_index(self, data_dict):
+        data_type = data_dict.get('type')
+        if data_type != 'dataset':
+            return data_dict
+
         try:
-            tags_dict = json.loads(data_dict.get('keywords', '{}'))
+            tags_dict = load_json(data_dict.get('keywords', '{}'))
         except Exception as err:
             log.error(data_dict.get('id', 'NO ID'))
             log.error(type(err))
             log.error("error:%s, keywords:%r", err, data_dict.get('keywords', '{}'))
             tags_dict = {"en": [], "fr": []}
 
-        data_dict['responsible_organizations'] = [x.get('organisation-name','').strip() for x in json.loads(data_dict.get('cited-responsible-party', '{}')) if x.get('role') in ['originator']]
+        force_resp_org = load_json(data_dict.get('force_responsible_organization', '[]'))
+        data_dict['responsible_organizations'] = self._cited_responsible_party_to_responsible_organizations(data_dict.get('cited-responsible-party', '{}'), force_resp_org)
 
         # update tag list by language
         data_dict['tags_en'] = tags_dict.get('en', [])
@@ -393,8 +415,7 @@ class Cioos_ThemePlugin(plugins.SingletonPlugin, DefaultTranslation):
 
         # update organization list by language
         org_id = data_dict.get('owner_org')
-        data_type = data_dict.get('type')
-        if org_id and data_type == 'dataset':
+        if org_id:
             org_details = toolkit.get_action('organization_show')(
                 data_dict={
                     'id': org_id,
@@ -412,12 +433,13 @@ class Cioos_ThemePlugin(plugins.SingletonPlugin, DefaultTranslation):
             data_dict['organization_fr'] = org_title.get('fr', '')
 
         try:
-            title = json.loads(data_dict.get('title_translated', '{}'))
+            title = load_json(data_dict.get('title_translated', '{}'))
             data_dict['title_en'] = title.get('en', [])
             data_dict['title_fr'] = title.get('fr', [])
         except Exception as err:
             log.error(err)
 
+        # create temporal extent index.
         te = data_dict.get('temporal-extent', '{}')
         if te:
             temporal_extent = load_json(te)
@@ -430,6 +452,7 @@ class Cioos_ThemePlugin(plugins.SingletonPlugin, DefaultTranslation):
             if(temporal_extent_begin and temporal_extent_end):
                 data_dict['temporal-extent-range'] = '[' + temporal_extent_begin + ' TO ' + temporal_extent_end + ']'
 
+        # create vertical extent index
         ve = data_dict.get('vertical-extent', '{}')
         if ve:
             vertical_extent = load_json(ve)
@@ -443,6 +466,7 @@ class Cioos_ThemePlugin(plugins.SingletonPlugin, DefaultTranslation):
         # eov is multi select so it is a json list rather then a python list
         if(data_dict.get('eov')):
             data_dict['eov'] = load_json(data_dict['eov'])
+
         return data_dict
 
     # update eov search facets with keys from choices list in the scheming extension schema
@@ -463,10 +487,10 @@ class Cioos_ThemePlugin(plugins.SingletonPlugin, DefaultTranslation):
             choices = toolkit.h.scheming_field_choices(field)
             new_eovs = []
             for item in items:
-                for c in choices:
-                    if c['value'] == item['name']:
-                        item['display_name'] = toolkit.h.scheming_language_text(c.get('label', item['name']))
-                        item['category'] = c.get('catagory', u'')
+                for ch in choices:
+                    if ch['value'] == item['name']:
+                        item['display_name'] = toolkit.h.scheming_language_text(ch.get('label', item['name']))
+                        item['category'] = ch.get('catagory', u'')
                 new_eovs.append(item)
             search_results['search_facets']['eov']['items'] = new_eovs
 
@@ -487,6 +511,12 @@ class Cioos_ThemePlugin(plugins.SingletonPlugin, DefaultTranslation):
         # this is inconsistant with package data which is returned as json objects
         # by the package_show and package_search end points whout filters applied
         for result in search_results.get('results', []):
+
+            force_resp_org = load_json(self._get_extra_value('force_responsible_organization', result))
+            cited_responsible_party = result.get('cited-responsible-party')
+            if((cited_responsible_party or force_resp_org) and not result.get('responsible_organizations')):
+                result['responsible_organizations'] = self._cited_responsible_party_to_responsible_organizations(cited_responsible_party, force_resp_org)
+
             title = result.get('title_translated')
             if(title):
                 result['title_translated'] = load_json(title)
@@ -528,6 +558,7 @@ class Cioos_ThemePlugin(plugins.SingletonPlugin, DefaultTranslation):
     def after_show(self, context, package_dict):
         org_id = package_dict.get('owner_org')
         data_type = package_dict.get('type')
+
         if org_id and data_type == 'dataset':
             # need to turn off dataset_count, usersand groups here as it causes a recursive loop
             org_details = toolkit.get_action('organization_show')(
@@ -555,8 +586,12 @@ class Cioos_ThemePlugin(plugins.SingletonPlugin, DefaultTranslation):
             if org_image_url:
                 package_dict['organization']['image_url_translated'] = org_image_url
 
-        return package_dict
+        force_resp_org = load_json(self._get_extra_value('force_responsible_organization', package_dict))
+        cited_responsible_party = package_dict.get('cited-responsible-party')
+        if((cited_responsible_party or force_resp_org) and not package_dict.get('responsible_organizations')):
+            package_dict['responsible_organizations'] = self._cited_responsible_party_to_responsible_organizations(cited_responsible_party, force_resp_org)
 
+        return package_dict
 
     # Custom section
     def read_template(self):
@@ -565,3 +600,16 @@ class Cioos_ThemePlugin(plugins.SingletonPlugin, DefaultTranslation):
     def lang(self):
         from ckantoolkit import h
         return h.lang()
+
+    def get_locale_url(self, base_url, locale_urls):
+        default_locale = toolkit.config.get('ckan.locale_default', toolkit.config.get('ckan.locales_offered', ['en'])[0])
+        lang = toolkit.h.lang() or default_locale
+        if base_url.endswith('/'):
+            return base_url + locale_urls.get(lang)
+        return base_url + '/' + locale_urls.get(lang)
+
+
+class CIOOSController(base.BaseController):
+
+    def schemamap(self):
+        return base.render('schemamap.html')
